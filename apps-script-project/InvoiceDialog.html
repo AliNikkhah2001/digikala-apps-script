@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    table{border-collapse:collapse;width:100%;font-family:sans-serif;font-size:12px}
+    th,td{border:1px solid #ccc;padding:4px 8px;text-align:center}
+    th{background:#eee}
+    input[type='checkbox']{transform:scale(1.2)}
+    input[type='number']{width:60px}
+    /* progress bar */
+    #progressWrap{margin-top:12px;display:none;width:100%}
+    #pgBar{height:12px;width:0;background:#4caf50}
+  </style>
+</head>
+<body>
+  <h3>Select items to include</h3>
+  <div style="overflow:auto;max-height:500px;">
+    <table id="pivotTable"></table>
+  </div>
+
+  <h3>PR Code</h3>
+  <input type="text" id="prCode" placeholder="Enter PR Code"/>
+  <br><br>
+  <button onclick="submit()">Generate PDFs</button>
+
+  <!-- progress UI -->
+  <div id="progressWrap">
+    <div style="font-weight:bold">
+      <span id="pgLbl">Generating…</span>
+      <span id="pgCnt"></span>
+    </div>
+    <div style="height:12px;width:100%;background:#eee;border:1px solid #ccc">
+      <div id="pgBar"></div>
+    </div>
+  </div>
+
+  <script>
+    /* ---------------- build pivot table ---------------- */
+    const data     = JSON.parse(<?= pivot ?>);
+    const tableEl  = document.getElementById('pivotTable');
+    const header   = data[0];
+    const rows     = data.slice(1).filter((_,i)=>i%2!==1);   // skip price rows
+    const services = header.slice(1,-2);
+
+    // header row
+    const topTr = document.createElement('tr');
+    const corner = document.createElement('th');
+    corner.textContent = 'Worker ↓ / Service →';
+    topTr.appendChild(corner);
+
+    services.forEach((svc,j)=>{
+      const th = document.createElement('th');
+      const chk= document.createElement('input');
+      chk.type='checkbox';chk.checked=true;
+      chk.addEventListener('change',()=>rows.forEach((_,i)=>{
+        const box=document.getElementById(`cb-${i}-${j}`); if(box) box.checked = chk.checked;
+      }));
+      th.appendChild(document.createTextNode(svc));
+      th.appendChild(document.createElement('br'));
+      th.appendChild(chk);
+      topTr.appendChild(th);
+    });
+    // penalty header
+    const penH = document.createElement('th'); penH.textContent='Penalty'; topTr.appendChild(penH);
+    tableEl.appendChild(topTr);
+
+    // body rows
+    rows.forEach((r,i)=>{
+      const tr=document.createElement('tr'); const name=r[0];
+
+      const th=document.createElement('th');
+      const rowChk=document.createElement('input');
+      rowChk.type='checkbox';rowChk.checked=true;
+      rowChk.addEventListener('change',()=>services.forEach((_,j)=>{
+        const box=document.getElementById(`cb-${i}-${j}`); if(box) box.checked = rowChk.checked;
+      }));
+      th.appendChild(document.createTextNode(name));
+      th.appendChild(document.createElement('br'));
+      th.appendChild(rowChk);
+      tr.appendChild(th);
+
+      services.forEach((svc,j)=>{
+        const val=r[j+1];
+        const td=document.createElement('td');
+        const cb=document.createElement('input');
+        cb.type='checkbox';cb.checked=true;
+        cb.id=`cb-${i}-${j}`;
+        cb.dataset.person=name;
+        cb.dataset.service=svc;
+        cb.dataset.value=+val.toString().replace(/,/g,'')||0;
+        td.appendChild(cb); tr.appendChild(td);
+      });
+
+      const penTd=document.createElement('td');
+      const penInput=document.createElement('input');
+      penInput.type='number';penInput.min=0;
+      penInput.id=`penalty-${i}`;
+      penTd.appendChild(penInput); tr.appendChild(penTd);
+
+      tableEl.appendChild(tr);
+    });
+
+    /* ---------------- helpers ---------------- */
+    function buildPayload(){
+      const table=[], penalties={};
+      rows.forEach((r,i)=>{
+        const person=r[0];
+        services.forEach((svc,j)=>{
+          const box=document.getElementById(`cb-${i}-${j}`);
+          if(box&&box.checked){
+            const v=+box.dataset.value||0;
+            if(v>0) table.push({person,service:svc,value:v});
+          }
+        });
+        const pen=+document.getElementById(`penalty-${i}`).value||0;
+        if(pen) penalties[person]=pen;
+      });
+      return {table, penalties};
+    }
+
+    /* ---------------- progress-driven submit ---------------- */
+    function submit(){
+      const prCode=document.getElementById('prCode').value.trim();
+      if(!prCode) return alert('Please enter PR code.');
+
+      // show progress bar
+      const wrap=document.getElementById('progressWrap');
+      const bar =document.getElementById('pgBar');
+      const cnt =document.getElementById('pgCnt');
+      wrap.style.display='block'; bar.style.width='0%'; cnt.textContent='0 / ?';
+
+      const payload=buildPayload();
+      google.script.run
+        .withFailureHandler(e=>alert('❌ '+e.message))
+        .withSuccessHandler(function(total){
+           cnt.textContent='0 / '+total;
+           loop(0,total);
+        })
+        .prepareInvoiceBatch(payload,prCode);
+
+      function loop(done,total){
+        if(done===total){
+          bar.style.width='100%'; cnt.textContent='Done';
+          alert('All PDFs generated'); return;
+        }
+        google.script.run
+          .withFailureHandler(e=>alert('❌ '+e.message))
+          .withSuccessHandler(function(){
+            const newDone=done+1;
+            cnt.textContent=newDone+' / '+total;
+            bar.style.width=Math.round(100*newDone/total)+'%';
+            loop(newDone,total);
+          })
+          .generateSingleWorkerPDF(done);     // server generates idx=done
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+
+<!-- === BEGIN Report.html ================================================== -->
+<!DOCTYPE html>
+<html><head><base target="_top">
+<style>
+ body{font-family:arial;padding:12px}
+ table{border-collapse:collapse;width:100%}
+ th,td{border:1px solid #ccc;padding:4px;text-align:center}
+ th{background:#eee}
+</style></head>
+<body><h3>Rows with missing Service / Partner</h3>
+<table id="t"><thead><tr><th>Row</th><th>Service</th><th>Partner</th><th>Problem</th></tr></thead>
+<tbody></tbody></table>
+<script>
+const data=JSON.parse(document.querySelector('meta[name=data]').content||'[]');
+const tbody=document.querySelector('#t tbody');
+if(!data.length){
+  tbody.innerHTML='<tr><td colspan="4">✔ No issues found</td></tr>';
+}else{
+  data.forEach(r=>{
+    tbody.insertAdjacentHTML('beforeend',
+     `<tr><td>${r[0]}</td><td>${r[1]||''}</td><td>${r[2]||''}</td><td>${r[3]}</td></tr>`);
+  });
+}
+</script>
+</body></html>
+<!-- === END Report.html ==================================================== -->

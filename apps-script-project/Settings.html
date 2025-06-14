@@ -1,0 +1,59 @@
+<!DOCTYPE html><html><head><base target="_top">
+<style>
+ body{font-family:arial;padding:12px}
+ label{display:block;margin-top:6px;font-weight:bold}
+ input{width:100%;padding:4px}
+ button{margin-top:12px}
+</style></head><body>
+<h3>RAWDB Settings</h3>
+<div id="wrap"></div>
+
+<label>Service Filters (for Worker dropdown):</label>
+<div id="filterWrap" style="padding-left:6px"></div>
+
+<button onclick="save()">💾 Save</button>
+
+<script>
+const defs = <?!= JSON.stringify(Config.defaults) ?>;
+google.script.run.withSuccessHandler(buildForm).cfg();
+
+function buildForm(curr){
+  const cfg={...defs,...curr};
+  const wrap=document.getElementById('wrap');
+  Object.keys(defs).forEach(k=>{
+    wrap.insertAdjacentHTML('beforeend',
+      `<label>${k}<input id="${k}" value="${cfg[k]||''}"></label>`);
+  });
+
+  google.script.run.withSuccessHandler(list=>{
+    const sel=JSON.parse(cfg.ACTIVE_SERVICE_FILTERS||'[]');
+    const fw=document.getElementById('filterWrap');
+    list.forEach(cat=>{
+      const chk=sel.includes(cat)?'checked':'';
+      fw.insertAdjacentHTML('beforeend',
+        `<label style="font-weight:normal">
+           <input type="checkbox" value="${cat}" ${chk}> ${cat}
+         </label><br>`);
+    });
+  }).getWorkerCategories();
+}
+function save(){
+  const obj = {};
+  document.querySelectorAll('#wrap input')
+          .forEach(i => obj[i.id] = i.value);
+
+  obj.ACTIVE_SERVICE_FILTERS = JSON.stringify(
+        [...document.querySelectorAll('#filterWrap input:checked')]
+          .map(i => i.value));
+
+  google.script.run
+    .withSuccessHandler(function(ret){
+        if (ret === 'ok') alert('✅ Settings saved and dropdowns refreshed');
+        else alert('Unexpected reply: ' + ret);
+    })
+    .withFailureHandler(function(err){
+        alert('❌ ' + err.message);
+    })
+    .updateSettingsPipeline(obj);
+}
+</script></body></html>

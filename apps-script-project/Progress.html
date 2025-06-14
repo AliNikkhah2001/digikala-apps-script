@@ -1,0 +1,41 @@
+<!-- Progress.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body{font-family:Arial;padding:16px}
+    #barWrap{width:100%;background:#eee;border-radius:4px;height:18px}
+    #bar{height:100%;width:0;background:#4caf50;border-radius:4px;transition:width .3s}
+    #txt{margin-top:8px;font-size:13px;text-align:center}
+  </style>
+</head>
+<body>
+  <h3 style="margin-top:0">Synchronising…</h3>
+  <div id="barWrap"><div id="bar"></div></div>
+  <div id="txt">0 %</div>
+
+<script>
+let timer = setInterval(tick, 800);
+
+function tick(){
+  google.script.run
+     .withSuccessHandler(pct=>{
+        if(pct<0){                    // error flag
+          document.getElementById('txt').textContent='❌ Failed';
+          clearInterval(timer);
+          return;
+        }
+        document.getElementById('bar').style.width = pct + '%';
+        document.getElementById('txt').textContent = pct + ' %';
+        if(pct>=100){
+          document.getElementById('txt').textContent='✔ Done';
+          clearInterval(timer);
+          setTimeout(()=>google.script.host.close(), 1200);
+        }
+     })
+     .getSyncProgress();
+}
+</script>
+</body>
+</html>

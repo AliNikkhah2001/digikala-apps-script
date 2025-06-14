@@ -1,0 +1,80 @@
+<!-- === Transfer.html (v2) =============================================== -->
+<!DOCTYPE html><html><head><base target="_top"><meta charset="utf-8">
+<style>
+ body{font-family:arial;padding:12px;font-size:13px}
+ table{border-collapse:collapse;width:100%;margin-top:6px}
+ th,td{border:1px solid #ccc;padding:4px;text-align:center}
+ th{background:#eee}
+ #stats{margin-top:6px;font-weight:bold}
+ #pwdBox{display:none;margin-top:8px}
+ #pwd{width:140px}
+</style></head><body>
+<h3>Transfer to WAREHOUSE</h3>
+
+<div id="stats"></div>
+<table id="tbl"><thead><tr>
+  <th></th><th>Row</th><th>Ticket</th><th>Service</th><th>Partner</th><th>Status</th>
+</tr></thead><tbody></tbody></table>
+
+<div id="pwdBox">
+  <label>Password: <input id="pwd" type="password"></label>
+</div>
+
+<button onclick="doTransfer()">Transfer selected</button>
+
+<script>
+const cand = <?!= candidates ?>;    // injected JSON
+const tb   = document.querySelector('#tbl tbody');
+let uniq = 0, dup = 0;
+
+cand.forEach(r=>{
+  const auto = !r.duplicate;
+  if(auto) uniq++; else dup++;
+  tb.insertAdjacentHTML('beforeend', `
+    <tr>
+      <td><input type="checkbox" data-idx="${r.idx}" ${auto?'checked':''} ${auto?'disabled':''}></td>
+      <td>${r.idx}</td>
+      <td>${r.ticket}</td>
+      <td>${r.service}</td>
+      <td>${r.partner}</td>
+      <td>${r.duplicate?'duplicate':'unique'}</td>
+    </tr>`);
+});
+
+document.getElementById('stats').textContent =
+  `Total: ${cand.length}  •  Unique: ${uniq}  •  Duplicates: ${dup}`;
+
+if (dup) document.getElementById('pwdBox').style.display = 'block';
+
+/* ---- utils ---- */
+async function sha256(txt){
+  const buf = new TextEncoder().encode(txt);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+async function doTransfer(){
+  const checks = [...document.querySelectorAll('input[type=checkbox]:checked')];
+  if(!checks.length){ alert('Select at least one row'); return; }
+
+  const rows = checks.map(c=>+c.dataset.idx);
+  const dupRows = rows.filter(rn => cand.find(o=>o.idx===rn).duplicate);
+
+  let pwHash = '';
+  if (dupRows.length){
+     const pwd = document.getElementById('pwd').value.trim();
+     if(!pwd){ alert('Password required for duplicates'); return; }
+     pwHash = await sha256(pwd);
+  }
+
+  google.script.run
+    .withSuccessHandler(n=>{
+       alert(`✅ ${n} row(s) transferred`);
+       google.script.host.close();
+    })
+    .withFailureHandler(err=>alert('❌ '+err.message))
+    .transferRows({rows, dupRows, pwHash});
+}
+</script>
+</body></html>
+<!-- === END Transfer.html ================================================= -->
