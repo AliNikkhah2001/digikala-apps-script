@@ -46,7 +46,7 @@ git checkout -b feature/your-feature-name
 clasp push
 
 # Open Apps Script editor to test
-clasp open
+clasp open-script
 ```
 
 #### 4. Monitor and Debug
@@ -89,7 +89,7 @@ git push origin main
 
 1. **Find the associated Google Sheet**:
    - The Apps Script is bound to a specific Google Sheet
-   - You can find the sheet by running: `clasp open --webapp` or `clasp open`
+   - You can find the sheet by running: `clasp open-web-app` or `clasp open-script`
 
 2. **Test your changes**:
    - Open the Google Sheet
@@ -115,7 +115,7 @@ clasp push
 clasp push --watch
 
 # Open Apps Script editor in browser
-clasp open
+clasp open-script
 
 # View project info
 clasp list
